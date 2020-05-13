@@ -73,9 +73,10 @@
 		</style>
     </head>
     <body>
-        <h2>Screen Time Data Visualization for Behavioral Change</h2>
-        <p>Source: Private</p>
-        <p>Author: Tianqi Zhou</p>
+        <h2>Screen Time Data Visualization</h2>
+        <p>Don't close this window until you complete the survey</p>
+        <p>Assuming this is a data visualization for your smartphone using time this week.</p>
+ 
 
         <div id="stackedbars">
             <h3>Daily Average</h3>
@@ -209,7 +210,7 @@
                       .attr("dy", "0.35em")
                       .attr("text-anchor", "start")
                       .attr("fill", "#000")
-                      .text("mins");
+                      .text("hours");
 
                 var legend = bar.selectAll(".legend")
                     .data(dataset.columns.slice(3).reverse())
