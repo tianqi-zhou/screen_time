@@ -112,7 +112,7 @@
                 var rhours = Math.floor(hours);
                 var minutes = (hours - rhours) * 60;
                 var rminutes = Math.round(minutes);
-                return rhours + "h" + rminutes + "m";
+                return rhours + "h:" + rminutes + "m ";
             }
             // import data
             d3.csv('screentime.csv', function(dataset) {
@@ -196,7 +196,13 @@
                 var yAxisGenerator = d3.axisLeft(bar_heightScale);
                 bar.append("g")
                       .attr("class", "axis axis--y")
-                      .call(yAxisGenerator.ticks(5, "s"))
+                      .call(
+                        yAxisGenerator
+                        .ticks(5, "s")
+                        .tickFormat(function(d,i){
+                            return timeConvert(d);
+                        })
+                      )
                     .append("text")
                       .attr("x", 2)
                       .attr("y", bar_heightScale(bar_heightScale.ticks(5).pop()))
