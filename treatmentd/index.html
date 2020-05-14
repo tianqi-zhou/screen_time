@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en"> 
+	<head>
+		<meta charset="utf-8">
+		<title>Screen Time</title>
+		<script type="text/javascript" src="d3.v4.min.js"></script>
+        <script type="text/javascript" src="lodash.min.js"> </script>
+        <script type="text/javascript" src="d3-scale-chromatic.v1.min.js"></script>
+		<style type="text/css">
+        body {
+                background-color: white;
+                font-family: Courier;
+            }
+
+        h2 {
+                margin-left: 200px;
+            }
+
+        h3 {
+                margin-left: 200px;
+            }
+
+        p {
+                margin-left: 200px;
+                font-size: 11pt;
+                color: gray;
+            }
+
+        img {
+                margin-left: 120px;
+                margin-top: 10px;
+            }
+
+        svg {
+                background-color: white;
+            }
+
+        line.grid {
+                stroke: #eee;
+            }
+        .axis path,
+        .axis line {
+                fill: none;
+                stroke: black;
+                shape-rendering: crispEdges;
+            }
+
+        .axis text {
+                font-family: "Lucida Console";
+                font-size: 13px;
+            }
+
+        .xlabel {
+                font-family: Courier;
+                font-size: 18px;
+                fill: black;
+                font-weight: bold;
+            }
+        div.tooltip {   
+            position: absolute;         
+            text-align: left;
+            width: 100px;
+            height: auto;                          
+            padding: 10px;               
+            font: 14px Courier;      
+            background-color: white; 
+            -webkit-border-radius: 10px;
+            -moz-border-radius: 10px;
+            border-radius: 10px;
+            -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+            -moz-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+            box-shadow: 4px 4px 10px rgba(0, 100, 100, 0.4);
+            pointer-events: none;           
+        }
+
+        .container {
+            position: relative;
+        }
+
+
+        .text-block {
+            position: absolute;
+            margin-left: 310px;
+            bottom: 30px;
+            right: 370px;
+            background-color: white;
+            color: black;
+            padding-left: 20px;
+            padding-right: 20px;
+            border: 3px black dotted;
+        }
+
+
+
+		</style>
+    </head>
+    <body>
+        <h2>Screen Time Data Visualization</h2>
+        <p>Don't close this window until you complete the survey</p>
+        <p>Assuming this is a data visualization for your smartphone using time this week.</p>
+ 
+
+        <div id="stackedbars">
+            <h3>Daily Average</h3>
+            <h2>7h9m</h2>
+            <svg id="stacked" ></svg>
+        </div>
+
+
+
+        <script type="text/javascript">
+
+            var bar_fullwidth = 800;
+            var bar_fullheight = 200;
+
+            var radius = 8;
+            var margin = {top: 20, right: 200, bottom: 30, left: 200};
+
+            var bar_width = bar_fullwidth - margin.left - margin.right;
+            var bar_height = bar_fullheight - margin.top - margin.bottom;
+
+            // create barchart svg
+            var bar = d3.select("#stacked")
+                    .attr("width", bar_fullwidth)
+                    .attr("height", bar_fullheight)
+                    .append("g")
+                    .attr("transform", 
+                    "translate(" + margin.left + "," + margin.top + ")");
+
+            var stack = d3.stack();
+
+            function timeConvert(n) {
+                var num = n;
+                var hours = (num / 60);
+                var rhours = Math.floor(hours);
+                var minutes = (hours - rhours) * 60;
+                var rminutes = Math.round(minutes);
+                return rhours + "h:" + rminutes + "m ";
+            }
+            // import data
+            d3.csv('screentime.csv', function(dataset) {
+                
+                // set bar scale
+                var bar_widthScale = d3.scaleBand()
+                    .domain(dataset.map(function(d){ return d.WD; }))
+                    .range([0, bar_width])
+                    .padding(0.3);
+
+                var bar_heightScale = d3.scaleLinear()
+                    .domain([0, d3.max(dataset, d => d.Total_STime)])
+                    .range([bar_height, 0]);
+
+                color = d3.scaleOrdinal(d3.schemeCategory20)
+                    .domain(dataset.columns.slice(3));
+
+                // Define the div for the tooltip
+                var div = d3.select("body")
+                    .append("div")   
+                    .attr("class", "tooltip")               
+                    .style("opacity", 0);
+
+                var mouseover = function(d) {
+                    div
+                      .style("opacity", 1)
+                    d3.select(this)
+                      .style("stroke", "black")
+                      .style("opacity", 1)
+                };
+
+                var mousemove = function(d) {
+                    var duration = d[1] - d[0];
+                    div.html("<strong>Duration:</strong> " + timeConvert(duration) + " <br>")
+                      .style("left", (d3.mouse(this)[0] + margin.left + 10) + "px")
+                      .style("top", (d3.mouse(this)[1]  + 190) + "px")
+                };
+
+
+                var mouseleave = function(d) {
+                    div
+                      .style("opacity", 0)
+                    d3.select(this)
+                      .style("stroke", "none")
+                      .style("opacity", 0.8)
+                };
+
+
+                // draw the bar chart
+
+                var bars = bar.selectAll(".cate")
+                    .data(stack.keys(dataset.columns.slice(3))(dataset))
+                    .enter().append("g")
+                        .attr("class", "cate")
+                        .attr("fill", function(d) { return color(d.key); })
+                    .selectAll("rect")
+                    .data(function(d) { return d; })
+                    .enter().append("rect")
+                    .attr("x", function(d) { 
+                        return bar_widthScale(d.data.WD); 
+                    })
+                    .attr("y", function(d) { 
+                        return bar_heightScale(d[1]); 
+                    })
+                    .attr("width", bar_widthScale.bandwidth())
+                    .attr("height", function(d) { 
+                        return bar_heightScale(d[0]) - bar_heightScale(d[1]); 
+                    })
+                    .on("mouseover", mouseover)
+                    .on("mousemove", mousemove)
+                    .on("mouseleave", mouseleave);
+
+
+                // add the barchart axes
+                // add the x Axis
+                bar.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate( 0," + bar_height + ")")
+                    .call(d3.axisBottom(bar_widthScale));
+                
+                var yAxisGenerator = d3.axisLeft(bar_heightScale);
+                bar.append("g")
+                      .attr("class", "axis axis--y")
+                      .call(
+                        yAxisGenerator
+                        .ticks(5, "s")
+                        .tickFormat(function(d,i){
+                            return timeConvert(d);
+                        })
+                      )
+                    .append("text")
+                      .attr("x", 2)
+                      .attr("y", bar_heightScale(bar_heightScale.ticks(5).pop()))
+                      .attr("dy", "0.35em")
+                      .attr("text-anchor", "start")
+                      .attr("fill", "#000")
+                      .text("hours");
+
+                var legend = bar.selectAll(".legend")
+                    .data(dataset.columns.slice(3).reverse())
+                    .enter().append("g")
+                      .attr("class", "legend")
+                      .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; })
+                      .style("font", "10px Lucida Console");
+
+                legend.append("rect")
+                      .attr("x", bar_width + 18)
+                      .attr("width", 18)
+                      .attr("height", 18)
+                      .attr("fill", color);
+
+                legend.append("text")
+                      .attr("x", bar_width + 44)
+                      .attr("y", 9)
+                      .attr("dy", ".35em")
+                      .attr("text-anchor", "start")
+                      .text(function(d) { return d; });
+
+
+            });
+
+        </script>
+
+        <div class="container">
+            <img src="social_butterfly.png" alt="Butterfly" width="200"">
+            <div class="text-block">
+                <h4>Screen time behavior score: 77 / 100</h4>
+                <h4>Behavior type: Social Butterfly
+                <p style="margin-left: 0px">Suggestion: Your social Networking daily using time is more than 80% of U.S. people, you may want to cut it down.</p>
+            </div>
+        </div>
+
+    </body>
+</html>
