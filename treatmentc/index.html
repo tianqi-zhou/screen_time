@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en"> 
+	<head>
+		<meta charset="utf-8">
+		<title>Screen Time</title>
+		<script type="text/javascript" src="d3.v4.min.js"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-beta/css/bootstrap.min.css"/>
+        <script src="https://unpkg.com/d3-require@0.4.5/build/d3-require.js"></script>
+        <script src="https://unpkg.com/d3-let@0.3.2/build/d3-let.js"></script>
+        <script src="https://unpkg.com/d3-view@0.9.3/build/d3-view.js"></script>
+        <script type="text/javascript" src="lodash.min.js"> </script>
+        <script type="text/javascript" src="d3-scale-chromatic.v1.min.js"></script>
+		<style type="text/css">
+            body {
+                background-color: white;
+                font-family: Courier;
+            }
+
+            h2 {
+                margin-left: 200px;
+            }
+
+            h3 {
+                margin-left: 200px;
+            }
+
+            p {
+                margin-left: 200px;
+                font-size: 11pt;
+                color: gray;
+            }
+
+            svg {
+                background-color: white;
+            }
+
+            line.grid {
+                stroke: #eee;
+            }
+
+            .axis path,
+            .axis line {
+                fill: none;
+                stroke: black;
+                shape-rendering: crispEdges;
+            }
+
+            .axis text {
+                font-family: "Lucida Console";
+                font-size: 13px;
+            }
+
+            .xlabel {
+                font-family: Courier;
+                font-size: 18px;
+                fill: black;
+                font-weight: bold;
+            }
+
+            path.slice {
+                stroke-width: 2px;
+            }
+
+            polyline {
+                opacity: .3;
+                stroke: black;
+                stroke-width: 2px;
+                fill: none;
+            }
+
+            div.tooltip {   
+                position: absolute;         
+                text-align: left;
+                width: 100px;
+                height: auto;                          
+                padding: 10px;               
+                font: 14px Courier;      
+                background-color: white; 
+                -webkit-border-radius: 10px;
+                -moz-border-radius: 10px;
+                border-radius: 10px;
+                -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+                -moz-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+                box-shadow: 4px 4px 10px rgba(0, 100, 100, 0.4);
+                pointer-events: none;           
+            }
+		</style>
+    </head>
+    <body>
+        <h2>Screen Time Data Visualization</h2>
+        <p>Don't close this window until you complete the survey</p>
+        <p>Assuming this is a data visualization for your smartphone using time this week.</p>
+        <p>You can click at each bar to view daily details.</p>
+
+        <div id="stackedbars">
+            <h3>Daily Average</h3>
+            <h2>7h9m</h2>
+            <svg id="stacked" ></svg>
+        </div>
+
+        <script type="text/javascript">
+            function timeConvert(n) {
+                var num = n;
+                var hours = (num / 60);
+                var rhours = Math.floor(hours);
+                var minutes = (hours - rhours) * 60;
+                var rminutes = Math.round(minutes);
+                return rhours + "h" + rminutes + "m";
+            }
+            // Define the div for the tooltip
+            var div = d3.select("body")
+                .append("div")   
+                .attr("class", "tooltip")               
+                .style("opacity", 0);
+
+            var mouseover = function(d) {
+                div
+                  .style("opacity", 1)
+                d3.select(this)
+                  .style("stroke", "black")
+                  .style("opacity", 1)
+            };
+
+            var mousemove = function(d) {
+                console.log(d);
+                var duration = d.value;
+                div.html("<strong>Duration:</strong> " + timeConvert(duration) + " <br>")
+                  .style("left", (d3.mouse(this)[0] + 400) + "px")
+                  .style("top", (d3.mouse(this)[1]  + 190) + "px")
+            };
+
+
+            var mouseleave = function(d) {
+                div
+                  .style("opacity", 0)
+                d3.select(this)
+                  .style("stroke", "none")
+                  .style("opacity", 0.8)
+            };
+
+            // import data
+            d3.csv('screentime.csv', function(dataset) {
+
+                var bar_fullwidth = 800;
+                var bar_fullheight = 200;
+
+                var radius = 100;
+                var margin = {top: 20, right: 200, bottom: 30, left: 200};
+
+                var bar_width = bar_fullwidth - margin.left - margin.right;
+                var bar_height = bar_fullheight - margin.top - margin.bottom;
+
+                // create barchart svg
+                var bar = d3.select("#stacked")
+                        .attr("width", bar_fullwidth)
+                        .attr("height", bar_fullheight)
+                        .append("g")
+                        .attr("transform", 
+                        "translate(" + margin.left + "," + margin.top + ")");
+
+                var pie = d3.pie()
+                    .sort(null)
+                    .value(function(d) {
+                        return d;
+                    });
+
+
+                var arc = d3.arc()
+                    .outerRadius(radius * 0.8)
+                    .innerRadius(radius * 0.4);
+
+                var outerArc = d3.arc()
+                    .innerRadius(radius * 0.9)
+                    .outerRadius(radius * 0.9);
+                var color;
+
+                // set bar scale
+                var bar_widthScale = d3.scaleBand()
+                    .domain(dataset.map(function(d){
+                        return d.WD;
+                    }))
+                    .range([0, bar_width])
+                    .padding(0.3);
+
+                var bar_heightScale = d3.scaleLinear()
+                    .domain([0, d3.max(dataset, d => d.Total_STime)])
+                    .range([bar_height, 0]);
+
+                var color = d3.scaleOrdinal(d3.schemeCategory20)
+                    .domain(dataset.columns.slice(3));
+
+                function change(canvas, keys, values){
+                    var slice = canvas.select(".slices")
+                                    .selectAll("path.slice")
+                                    .data(pie(values));
+
+                    slice.enter()
+                        .insert("path")
+                        .style("fill", function(d, i) {
+                            return color(keys[i]);
+                        })
+                        .attr("class", "slice")
+                        .on("mouseover", mouseover)
+                        .on("mousemove", mousemove)
+                        .on("mouseleave", mouseleave);
+
+                    slice.transition().duration(1000)
+                        .attrTween("d", function(d) {
+                            this._current = this._current || d;
+                            var interpolate = d3.interpolate(this._current, d);
+                            this._current = interpolate(0);
+                            return function(t) {
+                                return arc(interpolate(t));
+                            };
+                        })
+
+                    slice.exit().remove();
+                }
+
+                // Modal object
+                var modal = {
+                    model: {
+                        modalTitle: "Details",
+                        modalBody: "<svg id='modal-canvas' width='100%' height='200'><g transform='translate(150, 100)'><g class='slices'></g><g class='lines'></g><g class='labels'></g></g></svg>",
+                        showModal: false,
+                        $showModal (data) {
+                            this.showModal = true;
+                            var canvas = d3.select("#modal-canvas");
+
+                            var legend = canvas.selectAll(".legend")
+                                .data(Object.keys(data).slice(3))
+                                .enter().append("g")
+                                    .attr("class", "legend")
+                                    .attr("transform", function(d, i) {
+                                        return "translate(0," + (20 + i * 20) + ")"; 
+                                    })
+                                    .style("font", "16px Lucida Console");
+
+                            legend.append("rect")
+                                  .attr("x", bar_width - 100)
+                                  .attr("width", 18)
+                                  .attr("height", 18)
+                                  .attr("fill", color);
+
+                            legend.append("text")
+                                  .attr("x", bar_width - 80)
+                                  .attr("y", 9)
+                                  .attr("dy", ".35em")
+                                  .attr("text-anchor", "start")
+                                  .text(function(d) { return d; });
+
+                            keys = Object.keys(data).slice(3);
+                            values = Object.values(data).slice(3).map(function(num) {
+                                return parseInt(num, 10); 
+                            });
+                            change(canvas, keys, [1,1,1,1,1,1,1,1]);
+                            change(canvas, keys, values);
+
+                        },
+                        $hideModal () {
+                            this.showModal = false;
+                        }
+                    },
+                    directive: {
+                        refresh (model, show) {
+                            if (!this.passes) return;
+                            var sel = this.sel,
+                                modal = sel.classed('modal');
+                            if (show) {
+                                sel.style('display', 'block').classed('show', true);
+                                if (modal) {
+                                    var height = sel.style('height');
+                                    sel.style('top', '-' + height);
+                                    this.transition(sel).ease(d3.easeExpOut).style('top', '0px');
+                                }
+                            }
+                            else {
+                                var op = sel.style('opacity'),
+                                    t = this.transition(sel);
+                                sel.classed('show', false);
+                                if (modal) {
+                                    var height = sel.style('height');
+                                    t.style('top', '-' + height).on('end', function () {
+                                        sel.style('display', 'none');
+                                    });
+                                } else
+                                    t.style('opacity', 0);
+                                t.on('end', function () {
+                                    sel.style('display', 'none').style('opacity', op);
+                                });
+                            }
+                        }
+                    },
+                    render: function () {
+                        return this.renderFromUrl('./modal.html');
+                    }
+                };
+
+                var vm = d3.view({
+                    model: {
+                        $modal() {
+                            var modal = vm.select('.modal');
+                            if (!modal.size())
+                                vm.select('body').append('modal').mount(null, v => v.model.$showModal());
+                            else
+                                modal.model().$showModal();
+                        }
+                    },
+                    components: {
+                        modal: modal
+                    },
+                    directives: {
+                        modal: modal.directive
+                    }
+                });
+                vm.mount('body');
+
+                // draw the bar chart
+                var bars = bar.selectAll("text.bar")
+                    .data(dataset)
+
+                bars.enter()
+                    .append("rect")
+                    .attr("x", function(d) {
+                        return bar_widthScale(d.WD); 
+                    })
+                    .attr("y", function(d) { 
+                        return bar_heightScale(d.Total_STime); 
+                    })
+                    .attr("width", bar_widthScale.bandwidth())
+                    .attr("height", function(d) { 
+                        return bar_height - bar_heightScale(d.Total_STime); 
+                    })
+                    .attr("fill", "steelblue")
+                    .on("click", function(d){
+                        var modal = vm.select('.modal');
+                        if (!modal.size())
+                            vm.select('body').append('modal')
+                              .mount(null, v => v.model.$showModal(d));
+                        else
+                            modal.model().$showModal(d);
+                    });
+
+                bars.enter()
+                    .append("text")
+                    .attr("text-anchor", "middle")
+                    .style("font", "10px Lucida Console")
+                    .attr("x", function(d) {
+                        return bar_widthScale(d.WD) + 20.5; 
+                    })
+                    .attr("y", function(d) { 
+                        return bar_heightScale(d.Total_STime) - 4.5; 
+                    })
+                    .text(function(d) {
+                        return timeConvert(d.Total_STime);
+                    });
+
+                // add the barchart axes
+                // add the x Axis
+                bar.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate( 0," + bar_height + ")")
+                    .call(d3.axisBottom(bar_widthScale));
+                
+                var yAxisGenerator = d3.axisLeft(bar_heightScale);
+                bar.append("g")
+                      .attr("class", "axis axis--y")
+                      .call(
+                        yAxisGenerator
+                        .ticks(5, "s")
+                        .tickFormat(function(d,i){
+                            return timeConvert(d);
+                        })
+                      )
+                    .append("text")
+                      .attr("x", 2)
+                      .attr("y", bar_heightScale(bar_heightScale.ticks(5).pop()))
+                      .attr("dy", "0.35em")
+                      .attr("text-anchor", "start")
+                      .attr("fill", "#000")
+                      .text("hours");
+
+
+            });
+
+        </script>
+    </body>
+</html>
