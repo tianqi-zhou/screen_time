@@ -32,6 +32,8 @@
 
         .options {
                 margin-left: 200px;
+                width: 100%;
+                height: 40px;
             }
         
         .option-title {
@@ -63,6 +65,7 @@
                 fill: black;
                 font-weight: bold;
             }
+
         div.tooltip {   
             position: absolute;         
             text-align: left;
@@ -93,10 +96,11 @@
         <div id="stackedbars">
             <h3>Daily Average</h3>
             <h2>7h9m</h2>
-                <div class="options">
-                    <div class="option-title">Spells sorted By</div>
-                    <div class="option-content"></div>
-                </div>
+            <div class="options">
+                <div class="option-title">View</div>
+                <div class="option-content"></div>
+            </div>
+
             <svg id="stacked" ></svg>
         </div>
 
@@ -143,20 +147,6 @@
                 return rhours + "h:" + rminutes + "m ";
             }
 
-            var select = d3.select('div.option-content')
-                .append('select')
-                .attr('class','select')
-                .on('change', function (d){
-                    selected_order = d3.select('select').property('value')
-                    console.log("selected_value: " + selected_order);
-                    updateFigure(FilteredDatas[selected_order]);
-                });
-            var options = select
-                .selectAll('option')
-                .data(order_data).enter()
-                .append('option')
-                    .text(function (d) { return d.name; })
-                    .attr("value", function (d) { return d.value; });
             // import data
             d3.csv('screentime.csv', function(dataset) {
                 
@@ -273,7 +263,8 @@
                       .attr("text-anchor", "start")
                       .text(function(d) { return d; });
 
-                bar.append("line")
+
+                var horizontal_line = bar.append("line")
                         .style("stroke", "red")
                         .style("stroke-dasharray", ("3, 3")) 
                         .attr("x1", 0)
@@ -281,7 +272,7 @@
                         .attr("x2", bar_width)
                         .attr("y2", bar_heightScale(195));
 
-                var myText =  bar.append("text")
+                var text_above_line = bar.append("text")
                       .attr("x", bar_width-160)
                       .attr("y", bar_heightScale(245))
                       .attr("dy", "0.35em")
@@ -291,6 +282,65 @@
                       .style("font", "10px Lucida Console")
                       .style("font-weight", "bold");
 
+                function drawLine(LineType) {
+
+                    if (LineType == "US"){
+                        horizontal_line
+                            .transition()
+                            .style("stroke", "red")
+                            .attr("y1", bar_heightScale(195))
+                            .attr("y2", bar_heightScale(195))
+
+                        text_above_line
+                            .transition()
+                            .attr("y", bar_heightScale(245))
+                            .attr("fill", "red")
+                            .text("U.S. average: 3 hrs 15 min")
+                    } else if (LineType == "Peer"){
+                        horizontal_line
+                            .transition()
+                            .style("stroke", "green")
+                            .attr("y1", bar_heightScale(260))
+                            .attr("y2", bar_heightScale(260))
+
+                        text_above_line
+                            .transition()
+                            .attr("y", bar_heightScale(310))
+                            .attr("fill", "green")
+                            .text("Peer average: 4 hrs 20 min")
+                    } else if (LineType == "Last"){
+                        horizontal_line
+                            .transition()
+                            .style("stroke", "blue")
+                            .attr("y1", bar_heightScale(315))
+                            .attr("y2", bar_heightScale(315))
+
+                        text_above_line
+                            .transition()
+                            .attr("fill", "blue")
+                            .attr("y", bar_heightScale(365))
+                            .text("Last week avg: 5 hrs 15 min")
+                    }
+                }
+
+                var select = d3.select('div.option-content')
+                    .append('select')
+                    .attr('class','select')
+                    .on('change', function (d){
+                        selected_value = d3.select('select').property('value');
+                        drawLine(selected_value);
+                    });
+
+                var options = select
+                    .selectAll('option')
+                    .data([
+                        { name: "U.S. Daily Average", value: "US" },
+                        { name: "Peer Daily Average", value: "Peer" }, 
+                        { name: "Your last Week Daily Average", value: "Last" }, 
+                    ]).enter()
+                    .append('option')
+                        .text(function (d) { return d.name; })
+                        .attr("value", function (d) { return d.value; });
 
             });
 
